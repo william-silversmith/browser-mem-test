@@ -1,28 +1,15 @@
-console.log('hi');
+(function growMemory() {
+    let req = new XMLHttpRequest();
+    req.responseType = 'arraybuffer';
 
-// fetch()
+    req.open("GET", "https://storage.googleapis.com/overview_meshes/test/154078.segmentation.gz");
 
-function growMemory()
-{
+    req.onload = () => {
+        console.log('got gz', req.response.byteLength);
+        req.response = null;
 
-    let test = new XMLHttpRequest();
-    test.responseType = 'arraybuffer';
-
-    test.open("GET", "https://storage.googleapis.com/overview_meshes/test/154078.segmentation.gz");
-
-    test.onload = () => {
-        console.log('got gz');
-
-        console.log(test.response.byteLength);
-        test.response = null;
-
-        // let myLZMA = new LZMA('./lzma_worker.js');
-
-        // LZMA.decompress(test.response, (res) => {
-        //     console.log('finished decompressing!');
-        //     window.test = res;
-        // });
+        growMemory();
     };
 
-    test.send();
-}
+    req.send();
+})();
