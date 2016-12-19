@@ -61,7 +61,7 @@ var LZMA = function (lzma_path) {
                 cbn:    cbn,    /// callback number
                 data:   data,
                 mode:   mode
-            });
+            }, [data]);
         }
         
         return {
