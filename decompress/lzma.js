@@ -23,7 +23,7 @@ var LZMA = function (lzma_path) {
             }
         } else {
             if (callback_obj[e.data.cbn] && typeof callback_obj[e.data.cbn].on_finish === "function") {
-                callback_obj[e.data.cbn].on_finish(e.data.result, e.data.error);
+                callback_obj[e.data.cbn].on_finish(e.data.result, e.data.orig, e.data.error);
                 
                 /// Since the (de)compression is complete, the callbacks are no longer needed.
                 delete callback_obj[e.data.cbn];
@@ -44,7 +44,10 @@ var LZMA = function (lzma_path) {
     
     return (function () {
         
-        function send_to_worker(action, data, mode, on_finish, on_progress) {
+        function send_to_worker(action, data, cube, mode, on_finish, on_progress) {
+
+            var write_arr = cube.buffer;
+
             var cbn;
             
             do {
@@ -60,16 +63,17 @@ var LZMA = function (lzma_path) {
                 action: action, /// action_compress = 1, action_decompress = 2, action_progress = 3
                 cbn:    cbn,    /// callback number
                 data:   data,
+                write_arr: write_arr,
                 mode:   mode
-            }, [data]);
+            }, [data, write_arr]);
         }
         
         return {
             // compress: function compress(mixed, mode, on_finish, on_progress) {
             //     send_to_worker(action_compress, mixed, mode, on_finish, on_progress);
             // },
-            decompress: function decompress(byte_arr, on_finish, on_progress) {
-                send_to_worker(action_decompress, byte_arr, false, on_finish, on_progress);
+            decompress: function decompress(byte_arr, cube, on_finish, on_progress) {
+                send_to_worker(action_decompress, byte_arr, cube, false, on_finish, on_progress);
             },
             worker: function worker() {
                 return lzma_worker;

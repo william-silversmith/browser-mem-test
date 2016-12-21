@@ -50,9 +50,9 @@ var LZMA = (function () {
     }
     /** de */
     
-    function $ByteArrayOutputStream(this$static) {
+    function $ByteArrayOutputStream(this$static, write_arr) {
         // this$static.buffers = [];
-        this$static.output = new Uint8Array(256 * 256 * 256 * 2);
+        this$static.output = new Uint8Array(write_arr);
         this$static.count = 0;
         // this$static.currentByteBuffer = new Uint8Array(1024);
         this$static.currentByteCount = 0;
@@ -60,7 +60,7 @@ var LZMA = (function () {
     }
     
     function $writeCurrentByteBuffer(this$static) {
-        console.log('writeCurrentByteBuffer', this$static.currentByteCount);
+        // console.log('writeCurrentByteBuffer', this$static.currentByteCount);
         if (this$static.currentByteCount == 0)
             return;
         
@@ -74,16 +74,10 @@ var LZMA = (function () {
     function $toByteArray(this$static) {
         $writeCurrentByteBuffer(this$static);
         
-        // var ret = new Uint8Array(this$static.count);
-        
-        // for (var i = 0, pos = 0; i < this$static.buffers.length; ++i) {
-        //     var l = this$static.buffers[i].length;
-        //     ret.set(this$static.buffers[i], pos);
-        //     pos += l;
-        // }
-        
         return this$static.output;
     }
+
+    var globalDecoder = null;
     
     /** ds */
     function $init_0(this$static, input, output) {
@@ -101,7 +95,7 @@ var LZMA = (function () {
             properties[i] = r;
         }
         
-        decoder = $Decoder({});
+        decoder = globalDecoder = globalDecoder || $Decoder({});
         if (!$SetDecoderProperties(decoder, properties)) {
             throw new Error("corrupted input");
         }
@@ -132,8 +126,8 @@ var LZMA = (function () {
         this$static.chunker = $CodeInChunks(decoder, input, output, this$static.length_0);
     }
     
-    function $LZMAByteArrayDecompressor(this$static, data) {
-        this$static.output = $ByteArrayOutputStream({});
+    function $LZMAByteArrayDecompressor(this$static, data, write_arr) {
+        this$static.output = $ByteArrayOutputStream({}, write_arr);
         $init_0(this$static, $ByteArrayInputStream({}, data), this$static.output);
         return this$static;
     }
@@ -161,8 +155,9 @@ var LZMA = (function () {
     }
     
     function $Create_5(this$static, windowSize) {
-        console.log('create_5', windowSize);
+        // console.log('create_5', windowSize);
         if (this$static._buffer == null || this$static._windowSize != windowSize) {
+            console.log('big alloc of window!');
             this$static._buffer = new Uint8Array(windowSize);
         }
         this$static._windowSize = windowSize;
@@ -171,8 +166,8 @@ var LZMA = (function () {
     }
     
     function $Flush_0(this$static) {
-        console.log('flush_0');
         var size = this$static._pos - this$static._streamPos;
+        // console.log('flush_0', size);
         if (!size) {
             return;
         }
@@ -187,7 +182,7 @@ var LZMA = (function () {
         // console.log('write_0', off, len, buf.length);
         // $writeCurrentByteBuffer(this$static);
 
-        this$static.output.set(buf, this$static.count);
+        this$static.output.set(new Uint8Array(buf.buffer, 0, len), this$static.count);
         // this$static.buffers.push(new Uint8Array(buf.subarray(off, off + len)));
         this$static.count += len;
     }
@@ -203,13 +198,13 @@ var LZMA = (function () {
     function $PutByte(this$static, b) {
         this$static._buffer[this$static._pos++] = b;
         if (this$static._pos >= this$static._windowSize) {
-            console.log('nope2');
+            // console.log('nope2');
             $Flush_0(this$static);
         }
     }
     
     function $ReleaseStream(this$static) {
-        console.log('nope1');
+        // console.log('nope1');
         $Flush_0(this$static);
         this$static._stream = null;
     }
@@ -268,7 +263,7 @@ var LZMA = (function () {
         this$static.inBytesProcessed = -1;
         this$static.outBytesProcessed = this$static.decoder.nowPos64;
         if (result || this$static.decoder.outSize >= 0 && this$static.decoder.nowPos64 >= this$static.decoder.outSize) {
-            console.log('nope3');
+            // console.log('nope3');
             $Flush_0(this$static.decoder.m_OutWindow);
             $ReleaseStream(this$static.decoder.m_OutWindow);
             this$static.decoder.m_RangeDecoder.Stream = null;
@@ -370,6 +365,7 @@ var LZMA = (function () {
     }
     
     function $Decoder(this$static) {
+        console.log('create decoder!');
         this$static.m_OutWindow = {};
         this$static.m_RangeDecoder = {};
         this$static.m_IsMatchDecoders = new Int16Array(192);
@@ -494,7 +490,7 @@ var LZMA = (function () {
     
     
     function $Create_0(this$static, numPosBits, numPrevBits) {
-        console.log('create_0');
+        // console.log('create_0');
         var i, numStates;
         if (this$static.m_Coders != null && this$static.m_NumPrevBits == numPrevBits && this$static.m_NumPosBits == numPosBits)
             return;
@@ -643,73 +639,9 @@ var LZMA = (function () {
             probs[i] = 1024;
         }
     }
-
-    /** ds */
-    function decode(utf) {
-        if (typeof TextDecoder !== 'undefined') {
-            try {
-                return new TextDecoder('utf-8', {fatal: true}).decode(utf);
-            } catch (e) {
-                /// It appears that this is binary data, so it cannot be converted to a string, so just send it back.
-                return utf;
-            }
-        }
-        
-        var i = 0, j = 0, x, y, z, l = utf.length, buf = [], charCodes = [];
-        for (; i < l; ++i, ++j) {
-            x = utf[i];
-            if (!(x & 128)) {
-                if (!x) {
-                    /// It appears that this is binary data, so it cannot be converted to a string, so just send it back.
-                    return utf;
-                }
-                charCodes[j] = x;
-            } else if ((x & 224) == 192) {
-                if (i + 1 >= l) {
-                    /// It appears that this is binary data, so it cannot be converted to a string, so just send it back.
-                    return utf;
-                }
-                y = utf[++i];
-                if ((y & 192) != 128) {
-                    /// It appears that this is binary data, so it cannot be converted to a string, so just send it back.
-                    return utf;
-                }
-                charCodes[j] = ((x & 31) << 6) | (y & 63);
-            } else if ((x & 240) == 224) {
-                if (i + 2 >= l) {
-                    /// It appears that this is binary data, so it cannot be converted to a string, so just send it back.
-                    return utf;
-                }
-                y = utf[++i];
-                if ((y & 192) != 128) {
-                    /// It appears that this is binary data, so it cannot be converted to a string, so just send it back.
-                    return utf;
-                }
-                z = utf[++i];
-                if ((z & 192) != 128) {
-                    /// It appears that this is binary data, so it cannot be converted to a string, so just send it back.
-                    return utf;
-                }
-                charCodes[j] = ((x & 15) << 12) | ((y & 63) << 6) | (z & 63);
-            } else {
-                /// It appears that this is binary data, so it cannot be converted to a string, so just send it back.
-                return utf;
-            }
-            if (j == 16383) {
-                buf.push(String.fromCharCode.apply(String, charCodes));
-                j = -1;
-            }
-        }
-        if (j > 0) {
-            charCodes.length = j;
-            buf.push(String.fromCharCode.apply(String, charCodes));
-        }
-        return buf.join("");
-    }
-    /** de */
    
     /** ds */
-    function decompress(byte_arr, on_finish, on_progress) {
+    function decompress(byte_arr, write_arr, on_finish, on_progress) {
         console.log('decompress!');
 
         var this$static = {},
@@ -724,16 +656,17 @@ var LZMA = (function () {
             on_finish = on_progress = 0;
         }
         
-        on_finish = on_finish || function(res, err) {
+        on_finish = on_finish || function(err) {
             if (typeof cbn == "undefined")
                 return;
             
             return postMessage({
                 action: action_decompress,
                 cbn: cbn,
-                result: res.buffer,
+                orig: byte_arr,
+                result: write_arr,
                 error: err
-            }, [res.buffer]);
+            }, [byte_arr, write_arr]);
         };
 
         on_progress = on_progress || function (bytes) {
@@ -744,36 +677,22 @@ var LZMA = (function () {
         };
         
         try {
-            this$static.d = $LZMAByteArrayDecompressor({}, byte_arr);
+            this$static.d = $LZMAByteArrayDecompressor({}, byte_arr, write_arr);
         } catch (err) {
             return on_finish(null, err);
         }
 
-        var step_bytes = 2 * 1024 * 1024, // send progress every two megabytes
-            last_update = 0;
-
         var count = 0;
-
-        // while (true) {
-        //     if (!$processChunk(this$static.c.chunker)) {
-        //         // on_finish($toByteArray(this$static.c.output));
-        //         break;
-        //     }
-        // }
-
-        console.log('start');
 
         while ($processChunk(this$static.d.chunker)) {
             count++;
         }
 
-        // for (let i = 11598451; i > 0; i--) {
-        //     count++;
-        //     $processDecoderChunk(this$static.d.chunker);
-        // }
+        console.log('count', count);
 
-        console.log('count', count, count - 11598451);
-        on_finish($toByteArray(this$static.d.output));
+        $toByteArray(this$static.d.output)
+
+        on_finish();
     }
     /** de */
     
@@ -784,7 +703,7 @@ var LZMA = (function () {
             /* jshint -W020 */
             /// Create the global onmessage function.
             onmessage = function (e) {
-                LZMA.decompress(e.data.data, e.data.cbn);
+                LZMA.decompress(e.data.data, e.data.write_arr, e.data.cbn);
             };
         }());
     }

@@ -1,67 +1,54 @@
-// (function growMemory() {
-//     let req = new XMLHttpRequest();
-//     req.responseType = 'arraybuffer';
-
-//     req.open("GET", "https://storage.googleapis.com/overview_meshes_dev/test/gz9-153546.segmentation.gz");
-
-//     req.onload = () => {
-//         console.log('got gz', req.response.byteLength);
-
-//         // window.what = req.response;
-//         // req.response = null;
-
-//         // growMemory();
-//     };
-
-//     req.send();
-// })();
-
-// setInterval(() => {
-//     console.log(window.performance.memory.usedJSHeapSize);
-// }, 100);
 
 
-let req = new XMLHttpRequest();
-req.responseType = 'arraybuffer';
+var uncompressed = null;
 
-req.open("GET", "./sege2198.lzma");
+{
+    let req = new XMLHttpRequest();
+    req.responseType = 'arraybuffer';
+    req.open("GET", "./d9e-153546.segmentation.lzma");
+    req.onload = () => {
+        console.log('got lzma', req.response.byteLength);
+        uncompressed = req.response;
+    };
+    req.send();
+}
 
 let myLZMA = new LZMA('./lzma_worker.js');
 
-req.onload = () => {
+let res = [1024, 1024, 256];
+
+var cube = new Uint16Array(res[0] * res[1] * res[2]);
+
+window.lookup = (x, y, z) => {
+    return cube[x + res[0] * (y + res[1] * z)];
+}
+
+
+
+var stopped = false;
+
+var count = 0;
+
+window.go = (once) => {
+    stopped = false;
+
     let start = Date.now();
-    // var decompressed = LZMA.decompress(new Uint8Array(req.response));
 
-    // console.log('size', decompressed.byteLength);
+    myLZMA.decompress(uncompressed, cube, function on_decompress_complete(result, orig) {
+        uncompressed = orig;
+        cube = new Uint16Array(result);
+        console.log('time', Date.now() - start, count++);
 
-
-    console.log('got lzma', req.response.byteLength);
-
-    myLZMA.decompress(req.response, function on_decompress_complete(result) {
-        console.log('got result!', result.byteLength / (1024 * 1024));
-        var cube = new Uint16Array(result);
-        // fulfillZz();
-        console.log('time', Date.now() - start);
+        if (!once && !stopped) {
+            go();
+        }
     }, (bytesProcessed) => {
-        // console.log('got something');
-        // let percent = bytesProcessed / (1024 * 1024 * 256 * 2);
-        // console.log(percent);
-
-        // cube.progress = 0.5 + percent / 2;
-        
-        // progressfn(this.loadingProgress());
     });
+}
 
-    req.response = null;
-
-    // growMemory();
-};
-
-req.send();
-
-// let myLZMA = new LZMA('./lzma_worker.js');
-
-
+stop = () => {
+    stopped = true;
+}
 
 
 
@@ -93,10 +80,22 @@ req.send();
 //   }
 // }
 
+// function test5() {
+//     var start1 = Date.now();
+//     var compressed = LZIP.compress(new Uint8Array(cube.buffer));
+//     console.log('time', Date.now() - start1);
+//     console.log(compressed);
+
+//     var start2 = Date.now();
+//     window.decompressed = LZIP.decompress(compressed);
+
+//     console.log('time', Date.now() - start2);
+
+// }
+
 // function testSimple() {
-//   print('testing simple..');
-//   var data = [100, 200, 200, 200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 0, 1];
-//   var compressed = LZMA.compress(data);
+// //   var data = [100, 200, 200, 200, 200, 200, 200, 100, 100, 200, 200, 200, 200, 0, 1];
+// //   var compressed = LZMA.compress(data);
 //   var decompressed = LZMA.decompress(compressed);
 
 //   console.log('decompressed', decompressed);
